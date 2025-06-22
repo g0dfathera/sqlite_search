@@ -4,6 +4,7 @@
 #include <sstream>
 #include <sqlite3.h>
 #include <iomanip>
+#include <limits>
 
 // Helper: Quote identifiers (table/column names) with double quotes and escape internal quotes
 std::string quoteIdentifier(const std::string& id) {
