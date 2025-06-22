@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include <limits>
 #include <sqlite3.h>
 
 // Helper: Quote identifiers (table/column names) with double quotes and escape internal quotes
