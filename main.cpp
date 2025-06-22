@@ -2,8 +2,8 @@
 #include <string>
 #include <vector>
 #include <sstream>
-#include <limits>
 #include <sqlite3.h>
+#include <iomanip>
 
 // Helper: Quote identifiers (table/column names) with double quotes and escape internal quotes
 std::string quoteIdentifier(const std::string& id) {
@@ -69,13 +69,15 @@ std::vector<std::string> getColumnNames(sqlite3* db, const std::string& table) {
     return columns;
 }
 
-void searchAndDisplay(sqlite3* db, const std::string& table, const std::vector<std::string>& searchFields, const std::vector<std::string>& searchValues, const std::vector<std::string>& columns) {
+void searchAndDisplay(sqlite3* db, const std::string& table,
+    const std::vector<std::string>& searchFields,
+    const std::vector<std::string>& searchValues,
+    const std::vector<std::string>& columns) {
     if (searchFields.empty() || searchFields.size() != searchValues.size()) {
-        std::cerr << "Search fields and values mismatch or empty." << std::endl;
+        std::cerr << " Invalid search input." << std::endl;
         return;
     }
 
-    // Build WHERE clause with ANDs, each using TRIM(field, '"') = ?
     std::string sql = "SELECT * FROM " + quoteIdentifier(table) + " WHERE ";
     for (size_t i = 0; i < searchFields.size(); ++i) {
         sql += "TRIM(" + quoteIdentifier(searchFields[i]) + ", '\"') = ?";
@@ -85,33 +87,29 @@ void searchAndDisplay(sqlite3* db, const std::string& table, const std::vector<s
 
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
-        std::cerr << "Failed to prepare search statement." << std::endl;
-        std::cerr << "SQL: " << sql << std::endl;
-        exit(1);
+        std::cerr << " Failed to prepare search query." << std::endl;
+        return;
     }
 
-    // Bind values
     for (size_t i = 0; i < searchValues.size(); ++i) {
-        if (sqlite3_bind_text(stmt, static_cast<int>(i + 1), searchValues[i].c_str(), -1, SQLITE_TRANSIENT) != SQLITE_OK) {
-            std::cerr << "Failed to bind search value " << i + 1 << std::endl;
-            sqlite3_finalize(stmt);
-            return;
-        }
+        sqlite3_bind_text(stmt, static_cast<int>(i + 1), searchValues[i].c_str(), -1, SQLITE_TRANSIENT);
     }
 
     bool found = false;
     while (sqlite3_step(stmt) == SQLITE_ROW) {
         found = true;
-        std::cout << "Found record:\n";
+        std::cout << "\n Match found:\n\n";
+        std::cout << "_____________________________\n";
         for (size_t i = 0; i < columns.size(); ++i) {
             const unsigned char* text = sqlite3_column_text(stmt, static_cast<int>(i));
-            std::cout << columns[i] << ": " << (text ? reinterpret_cast<const char*>(text) : "NULL") << std::endl;
+            std::string value = text ? reinterpret_cast<const char*>(text) : "";
+            std::cout << std::left << std::setw(15) << columns[i] << ": " << value << '\n';
         }
-        std::cout << "----------------------\n";
+        std::cout << "_____________________________\n";
     }
 
     if (!found) {
-        std::cout << "No matching records found for given criteria.\n";
+        std::cout << " No matching records found.\n";
     }
 
     sqlite3_finalize(stmt);
@@ -165,7 +163,7 @@ int main() {
         std::cout << i + 1 << ": " << columns[i] << std::endl;
     }
 
-    std::cout << "Select field/fields to search by data (separated by spaces or commas), e.g. '1' or '3 4'";
+    std::cout << "Select field/fields to search by data (separated by spaces or commas), e.g. '1' or '3 4' : ";
     std::string fieldSelection;
     std::getline(std::cin, fieldSelection);
 
